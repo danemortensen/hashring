@@ -1,0 +1,33 @@
+Node added
+	socket address: a
+	key: 0xa8b6f1c0b975c10c
+Node added
+	socket address: b
+	key: 0xec2faee6fe5feb92
+{ sockAddr: a, hash: 0xa8b6f1c0b975c10c }
+{ sockAddr: a, hash: 0xa8b6f1c0b975c10c }
+
+{ sockAddr: a, hash: 0xa8b6f1c0b975c10c }
+{ sockAddr: b, hash: 0xec2faee6fe5feb92 }
+Node added
+	socket address: asdfasd;fkl
+	key: 0x6cdee53713c92551
+{ sockAddr: b, hash: 0xec2faee6fe5feb92 }
+{ sockAddr: a, hash: 0xa8b6f1c0b975c10c }
+
+{ sockAddr: asdfasd;fkl, hash: 0x6cdee53713c92551 }
+{ sockAddr: a, hash: 0xa8b6f1c0b975c10c }
+{ sockAddr: b, hash: 0xec2faee6fe5feb92 }
+Node added
+	socket address: localhost:3000
+	key: 0x24d8c8c7f3b6b693
+{ sockAddr: b, hash: 0xec2faee6fe5feb92 }
+{ sockAddr: asdfasd;fkl, hash: 0x6cdee53713c92551 }
+
+{ sockAddr: localhost:3000, hash: 0x24d8c8c7f3b6b693 }
+{ sockAddr: asdfasd;fkl, hash: 0x6cdee53713c92551 }
+{ sockAddr: a, hash: 0xa8b6f1c0b975c10c }
+{ sockAddr: b, hash: 0xec2faee6fe5feb92 }
+b
+localhost:3000
+a
