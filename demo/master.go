@@ -1,19 +1,17 @@
 package main
 
 import (
-   "flag"
-   //"fmt"
+   "bufio"
+   //"errors"
+   "fmt"
    "log"
-   "net"
-   "net/http"
-   //"os"
+   "os"
+   "strings"
 
    "github.com/danemortensen/hashring"
-   "github.com/gorilla/mux"
 )
 
 var (
-   sockAddr string
    hr hashring.HashRing
 )
 
@@ -23,36 +21,62 @@ func checkError(err error) {
    }
 }
 
-
-func init() {
-   flag.StringVar(&sockAddr, "sa", "", "My socket address (<inetAddr>:<port>)")
+func instruct() {
+   fmt.Println("Usage:")
+   fmt.Println("\tAdd node: add <name>")
+   fmt.Println("\tDelete node: delete <name>")
+   fmt.Println("\tStore key-value: put <key> <value>")
+   fmt.Println("\tGet node storing key-value: get <key>")
+   fmt.Println("\tPrint ring: print")
+   fmt.Println("\tHelp: help")
+   fmt.Println("\tQuit: quit")
+   fmt.Println()
 }
 
-func checkArgs() {
-   if sockAddr == "" {
-      log.Fatal("Socket address required")
+func checkArgs(words []string, min int) error {
+   //if len(words) - 1 < len {
+      //return errors.New("Not enough arguments")
+   //}
+
+   return nil
+}
+
+func interpret(input string) {
+   words := strings.Split(input, " ")
+
+   switch words[0] {
+   case "add":
+      hr.AddNode(words[1])
+      fmt.Println("Node", words[1], "added")
+      hr.PrintRing()
+   case "delete":
+      hr.DeleteNode(words[1])
+      hr.PrintRing()
+   case "put":
+      hr.Put(words[1], words[2])
+      hr.PrintRing()
+   case "get":
+      fmt.Println(fmt.Sprintf("\t%s", hr.Get(words[1]).Strep()))
+   case "print":
+      hr.PrintRing()
+   case "help":
+      instruct()
+   default:
+      fmt.Println("Invalid input")
    }
 }
 
-//func addNodes(sockAddrs string[]) {
-   //for sockAddr := range sockAddrs {
-      
-   //}
-//}
-
 func main() {
-   flag.Parse()
-   checkArgs()
-   hr.MakeHashRing()
-   hr.AddNode("a")
-   hr.AddNode("b")
-   hr.AddNode("asdfasd;fkl")
-   hr.AddNode(sockAddr)
-   hr.Get("fuck")
-   hr.Get("shit")
-   hr.Get("bitch")
-   listener, err := net.Listen("tcp", sockAddr)
-   checkError(err)
-   rtr := mux.NewRouter()
-   log.Fatal(http.Serve(listener, rtr))
+   instruct()
+   scanner := bufio.NewScanner(os.Stdin)
+   for {
+      fmt.Printf("Enter a command: ")
+      scanner.Scan()
+      input := scanner.Text()
+      if input == "quit" {
+         break
+      }
+      interpret(input)
+   }
+   checkError(scanner.Err())
 }

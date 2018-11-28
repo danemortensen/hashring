@@ -2,161 +2,235 @@ package hashring
 
 import (
    "crypto/md5"
-   //"encoding/json"
    "fmt"
    "log"
-   //"net/http"
-   //"net/url"
-   //"sort"
+   "math/rand"
 )
+
+const nodeReps = 4
 
 type hashKey uint64
 
-type node struct {
-   sockAddr string
-   hash hashKey
-   prev *node
-   next *node
+type Node struct {
+   name        string
+   hash        hashKey
+   store       map[hashKey]string
+   prev        *Node
+   next        *Node
 }
 
 type HashRing struct {
-   //nodes map[string]hashKey
-   nodes *node
-   table map[hashKey]string
+   numNodes    uint
+   start       *Node
+   store       map[hashKey]map[hashKey]string
 }
 
 func (hr *HashRing) MakeHashRing() {
-   //hr.nodes = make(map[string]hashKey)
-   hr.table = make(map[hashKey]string)
+   hr.numNodes = 0
 }
 
 // add a node to the ring
-func (hr *HashRing) AddNode(sockAddr string) {
-   hash := hashTrunc(md5.Sum([]byte(sockAddr)))
-
-   newNode := node {
-      sockAddr: sockAddr,
-      hash: hash,
+func (hr *HashRing) AddNode(name string) {
+   hashes := getHashes()
+   for _, hash := range hashes {
+      newNode := Node {
+         name: name,
+         hash: hash,
+         store: make(map[hashKey]string),
+      }
+      hr.insertNode(newNode)
+      hr.numNodes++
    }
-
-   fmt.Printf("Node added\n\tsocket address: %s\n\tkey: 0x%x\n",
-              sockAddr, newNode.hash)
-   hr.insertNode(newNode)
-   hr.table[hash] = sockAddr
 }
 
-func (hr *HashRing) insertNode(n node) {
-   if hr.nodes == nil {
-      n.prev = &n
-      n.next = &n
-      hr.nodes = &n
+// deletes a node from the ring
+func (hr *HashRing) DeleteNode(name string) {
+   // case of empty list
+   if hr.numNodes == 0 {
       return
    }
 
-   cur := hr.nodes
-   for cur.hash < n.hash {
-      cur = cur.next
-      if cur == hr.nodes {
-         break
+   // case of a single node
+   if hr.numNodes == 1 {
+      if hr.start.name == name {
+         hr.start = nil
+         hr.numNodes--
       }
+      return
    }
 
-   if cur == hr.nodes && cur.next != cur {
-      hr.nodes = &n
-   }
-
-   n.prev = cur.prev
-   printNode(n.prev)
-   n.next = cur
-   printNode(n.next)
-   n.prev.next = &n
-   n.next.prev = &n
-   fmt.Println()
-
-   hr.printNodes()
-}
-
-func printNode(n *node) {
-   fmt.Printf("{ sockAddr: %s, hash: 0x%x }\n", n.sockAddr, n.hash)
-}
-
-func (hr *HashRing) printNodes() {
-   cur := hr.nodes
+   // cycle through ring
+   cur := hr.start
    for {
-      printNode(cur)
+      // check whether node should be deleted
+      if cur.name == name {
+         // delete the last node
+         if hr.numNodes == 1 {
+            hr.start = nil
+            hr.numNodes--
+            return
+         }
+
+         // reassign deleted node's key-values
+         for k, v := range cur.store {
+            cur.next.store[k] = v
+            delete(cur.store, k)
+         }
+         delete(hr.store, cur.hash)
+
+         // unlink node from ring
+         prev := cur.prev
+         next := cur.next
+         prev.next = next
+         next.prev = prev
+
+         // increment start if necessary
+         if cur == hr.start {
+            hr.start = next
+            hr.numNodes--
+            cur = next
+            continue
+         }
+
+         hr.numNodes--
+      }
+
       cur = cur.next
 
-      if cur == hr.nodes {
+      // break when we're back at the start
+      if cur == hr.start {
          break
       }
    }
+
+   hr.PrintRing()
 }
 
-func (hr *HashRing) DeleteNode() {
-
-}
-
-func (hr *HashRing) Get(key string) string {
-   hash := getHashKey(key)
-   sockAddr := hr.whichNode(hash)
-
-   return sockAddr
-}
-
+// stores the given key-value pair in the ring
 func (hr *HashRing) Put(key string, val string) {
-
+   keeper := hr.Get(key)
+   hash := getHashKey(key)
+   keeper.store[hash] = val
+   fmt.Printf("\tkey-value { %s (0x%16X), %s }\n\tassigned to node %s\n",
+         key, hash, val, keeper.Strep())
 }
 
-func (hr *HashRing) whichNode(hash hashKey) string {
-   cur := hr.nodes
+// returns the socket address of the server
+// responsible for storing the given key
+func (hr *HashRing) Get(key string) *Node {
+   hash := getHashKey(key)
+
+   cur := hr.start
    for cur.hash < hash {
       cur = cur.next
-      if cur == hr.nodes {
+      if cur == hr.start {
          break
       }
    }
-   fmt.Println(cur.sockAddr)
-   return cur.sockAddr
+
+   return cur
 }
 
-func getHashKey(key string) hashKey {
-   return hashTrunc(md5.Sum([]byte(key)))
-}
-
-// truncates a 128-bit MD5 hash into a 64-bit unsigned
-func hashTrunc(checksum [md5.Size]byte) hashKey {
-   key := hashKey(0)
-   for i := uint(0); i < 8; i++ {
-      key |= hashKey(checksum[i]) << (i * 8)
+// insert node into cyclic linked list
+func (hr *HashRing) insertNode(n Node) {
+   // case of empty list
+   if hr.numNodes == 0 {
+      n.prev = &n
+      n.next = &n
+      hr.start = &n
+      return
    }
-   return key
+
+   // find node with next highest hash
+   cur := hr.start
+   for cur.hash < n.hash {
+      cur = cur.next
+      if cur == hr.start {
+         break
+      }
+   }
+
+   // link node to list
+   n.prev = cur.prev
+   n.next = cur
+   n.prev.next = &n
+   n.next.prev = &n
+
+   // set start to be new node if it has the smallest hash
+   if cur == hr.start && n.hash < cur.hash {
+      hr.start = &n
+   }
+
+   // reassign key-value pairs to new node
+   giver := n.next.store
+   for k, v := range giver {
+      if k <= n.hash {
+         n.store[k] = v
+         delete(giver, k)
+      }
+   }
 }
 
-func (hr *HashRing) reassign(newNode string) {
-   //if len(hr.nodes) < 2 {
-      //return
-   //}
+func (n *Node) Strep() string {
+   return fmt.Sprintf("{ name: %s, hash: 0x%16X }", n.name, n.hash)
+}
 
-   //// sort nodes by their hashes
-   //var nodeHashes []hashKey
-   //for k := range hr.nodes {
-      //nodeHashes = append(nodeHashes, hr.nodes[k])
-   //}
-   //lt := func(i, j int) bool {
-      //return nodeHashes[i] < nodeHashes[j]
-   //}
-   //sort.Slice(nodeHashes, lt)
+func getHashes() [nodeReps]hashKey {
+   var hashes [nodeReps]hashKey
 
-   //newHash := hr.nodes[newNode]
-   //for hash := range nodeHashes {
-      //if hash != newHash {
-         //continue
-      //}
+   for i := range hashes {
+      hashes[i] = hashKey(rand.Uint64())
+   }
 
-      //if hash == 0 {
+   return hashes
+}
 
-      //}
-   //}
+// reassigns key-value pairs to a newly added node
+// from the next node when the key is less than the new node's
+func (hr *HashRing) newReassign(n *Node) {
+   giver := hr.store[n.next.hash]
+
+   for k, v := range giver {
+      if k < n.hash {
+         hr.store[n.hash][k] = v
+         delete(giver, k)
+      }
+   }
+}
+
+func (hr *HashRing) PrintRing() {
+   fmt.Println("Nodes in the ring:", hr.numNodes)
+   if hr.numNodes == 0 {
+      return
+   }
+
+   cur := hr.start
+   for {
+      fmt.Printf("\t%s\n", cur.Strep())
+      for k, v := range cur.store {
+         fmt.Printf("\t\t{ 0x%16X, %s }\n", k, v)
+      }
+
+      cur = cur.next
+
+      if cur == hr.start {
+         break
+      }
+   }
+   fmt.Println()
+}
+
+// generates a 128-bit MD5 hash for key
+// and truncates it into a 64-bit unsigned
+func getHashKey(key string) hashKey {
+   checksum := md5.Sum([]byte(key))
+   hash := hashKey(0)
+
+   for i := uint(0); i < 8; i++ {
+      hash |= hashKey(checksum[i]) << (i * 8)
+   }
+
+   return hash
 }
 
 func checkError(err error) {
