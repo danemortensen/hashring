@@ -2,7 +2,6 @@ package main
 
 import (
    "bufio"
-   //"errors"
    "fmt"
    "log"
    "os"
@@ -31,14 +30,6 @@ func instruct() {
    fmt.Println("\tHelp: help")
    fmt.Println("\tQuit: quit")
    fmt.Println()
-}
-
-func checkArgs(words []string, min int) error {
-   //if len(words) - 1 < len {
-      //return errors.New("Not enough arguments")
-   //}
-
-   return nil
 }
 
 func interpret(input string) {
